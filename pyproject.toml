@@ -4,6 +4,11 @@ version = "0.1.0"
 dependencies = [
     "databricks-ai-search",
     "unitycatalog-ai[databricks]",
+    "openai-agents",
+    "databricks-openai",
+    "databricks-sdk",
+    "mlflow",
+    "google-genai",
 ]
 
 [tool.databricks.environment]
