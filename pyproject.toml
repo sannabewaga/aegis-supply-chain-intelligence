@@ -1,0 +1,10 @@
+[project]
+name = "aegis-supply-chain-intelligence"
+version = "0.1.0"
+dependencies = [
+    "databricks-ai-search",
+    "unitycatalog-ai[databricks]",
+]
+
+[tool.databricks.environment]
+environment_version = "6"
