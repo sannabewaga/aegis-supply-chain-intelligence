@@ -3,6 +3,7 @@ from databricks.ai.rag.documents.retrieve import search_knowledge
 from google import genai
 from unitycatalog.ai.core.databricks import DatabricksFunctionClient
 
+print("1. Imports complete")
 
 # ============================================================
 # 1. CONFIGURATION
@@ -15,6 +16,7 @@ MAX_STEPS = 6
 SECRET_SCOPE = "aegis-secrets"
 SECRET_KEY = "gemini-api-key"
 
+print("2. Secret retrieved")
 
 # ============================================================
 # 2. GEMINI CLIENT
@@ -29,6 +31,7 @@ gemini = genai.Client(
     api_key=api_key
 )
 
+print("3. Gemini client created")
 
 # ============================================================
 # 3. UNITY CATALOG CLIENT
@@ -36,12 +39,46 @@ gemini = genai.Client(
 
 uc_client = DatabricksFunctionClient()
 
+print("4. UC client created")
 
+print("5. Ready to run agent")
 # ============================================================
 # 4. TOOL DEFINITIONS
 # ============================================================
 
 TOOLS = [
+    {
+    "type": "function",
+    "name": "get_supplier_network",
+    "description": (
+        "Discover the warehouses and carriers actually handling "
+        "a supplier's shipments during a specified period. "
+        "Use this before investigating whether a warehouse or "
+        "carrier contributed to a supplier performance problem."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "supplier_id": {
+                "type": "string",
+                "description": "Supplier ID such as SUP0014.",
+            },
+            "start_date": {
+                "type": "string",
+                "description": "Start date in YYYY-MM-DD format.",
+            },
+            "end_date": {
+                "type": "string",
+                "description": "End date in YYYY-MM-DD format.",
+            },
+        },
+        "required": [
+            "supplier_id",
+            "start_date",
+            "end_date",
+        ],
+    },
+},
     {
         "type": "function",
         "name": "search_enterprise_knowledge",
@@ -320,6 +357,9 @@ TOOLS = [
 
 FUNCTION_MAP = {
 
+    "get_supplier_network":
+    "workspace.aegis_gold.get_supplier_network",
+
     "get_supplier_performance":
         "workspace.aegis_gold.get_supplier_performance",
 
@@ -345,6 +385,12 @@ FUNCTION_MAP = {
 # ============================================================
 
 PARAMETER_MAP = {
+
+    "get_supplier_network": {
+    "supplier_id": "p_supplier_id",
+    "start_date": "p_start_date",
+    "end_date": "p_end_date",
+    },
 
     "get_supplier_performance": {
         "supplier_id": "p_supplier_id",
@@ -421,6 +467,13 @@ def execute_tool(
         uc_parameter = parameter_mapping[gemini_parameter]
         uc_parameters[uc_parameter] = value
 
+        # get_delivery_performance accepts optional warehouse/carrier filters.
+    # Unity Catalog still requires values for all function parameters,
+    # so explicitly pass NULL when the agent does not specify them.
+
+    if function_name == "get_delivery_performance":
+        uc_parameters.setdefault("p_warehouse_id", None)
+        uc_parameters.setdefault("p_carrier_id", None)
     result = uc_client.execute_function(
         function_name=uc_function,
         parameters=uc_parameters,
@@ -469,6 +522,10 @@ def ask_aegis(question: str):
 
             "Do not claim causation unless the available evidence "
             "supports it."
+            "Use get_supplier_network when investigating "
+            "relationships between suppliers, warehouses, and carriers. "
+            "Use the discovered warehouse and carrier IDs to drill into "
+            "their performance with the appropriate analytical tools.\n\n"
         ),
     )
 
